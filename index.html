@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Power Dialer</title>
+<style>
+  :root{
+    --bg:#fbfbfa; --panel:#fff; --line:#e4e4e1; --ink:#1c1c1a; --dim:#7a7a75;
+    --accent:#0f7b5f; --warn:#a35a12; --bad:#a02c2c; --crease:#00000010;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#151513; --panel:#1c1c1a; --line:#2e2e2b; --ink:#eceae5; --dim:#8e8e88;
+           --accent:#3fbf95; --warn:#d29a4e; --bad:#e07070; --crease:#00000040; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+  button{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);
+         border-radius:6px;padding:6px 12px;cursor:pointer}
+  button:hover:not(:disabled){border-color:var(--dim)}
+  button:disabled{opacity:.4;cursor:default}
+  input,select,textarea{font:inherit;color:inherit;background:var(--panel);
+         border:1px solid var(--line);border-radius:6px;padding:6px 9px}
+  a{color:var(--accent)}
+
+  header{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+         padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header .sp{flex:1}
+  #stats{color:var(--dim);font-variant-numeric:tabular-nums}
+  #status{font-size:12px;color:var(--dim);min-height:18px;display:block}
+  .link{background:none;border:none;color:var(--accent);padding:0;text-decoration:underline}
+
+  /* tri-fold: numbers | dial | dossier, with a crease at each fold */
+  main{display:grid;grid-template-columns:300px minmax(300px,360px) 1fr;
+       height:calc(100vh - 53px);background:var(--panel)}
+  main > *{overflow:auto}
+  #fold-l{border-right:1px solid var(--line);box-shadow:inset -8px 0 8px -8px var(--crease)}
+  #fold-m{border-right:1px solid var(--line);padding:20px;
+          box-shadow:inset 8px 0 8px -8px var(--crease),inset -8px 0 8px -8px var(--crease)}
+  #fold-r{box-shadow:inset 8px 0 8px -8px var(--crease);padding:18px 22px}
+  @media (max-width:1000px){
+    main{grid-template-columns:1fr;height:auto}
+    #fold-l{max-height:35vh}
+    main > *{border-right:none;box-shadow:none;border-bottom:1px solid var(--line)}
+  }
+
+  .fold-hd{position:sticky;top:0;background:var(--panel);padding:8px 12px;font-size:11px;
+           letter-spacing:.09em;text-transform:uppercase;color:var(--dim);
+           border-bottom:1px solid var(--line);z-index:1}
+  .q{padding:8px 12px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}
+  .q:hover{background:var(--bg)}
+  .q.on{background:var(--bg);box-shadow:inset 3px 0 0 var(--accent)}
+  .q b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .q .ph{color:var(--dim);font-size:12px;font-variant-numeric:tabular-nums}
+  .q .tag{float:right;font-size:11px;color:var(--accent)}
+
+  h1{font-size:20px;margin:0 0 2px;line-height:1.25}
+  .sub{color:var(--dim);font-size:12px;margin-bottom:14px}
+  .num{font-size:32px;font-variant-numeric:tabular-nums;letter-spacing:.5px;margin:10px 0 4px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}
+  .call{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;
+        padding:16px;width:100%;font-size:17px}
+  .nav{flex:1;padding:10px}
+  .hang{background:var(--bad);border-color:var(--bad);color:#fff;width:100%;padding:10px}
+  .note{color:var(--warn);font-size:12px}
+  .outs{display:grid;gap:6px}
+  .outs button{text-align:left;display:flex;justify-content:space-between}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  td{border-top:1px solid var(--line);padding:6px 10px;vertical-align:top}
+  td:first-child{color:var(--dim);width:190px;white-space:nowrap}
+  iframe{width:100%;height:280px;border:1px solid var(--line);border-radius:8px}
+  textarea{width:100%;min-height:70px;resize:vertical}
+  kbd{border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:11px;
+      color:var(--dim);font-family:ui-monospace,monospace}
+  .keys{margin-top:18px;padding-top:12px;border-top:1px solid var(--line);
+        font-size:12px;color:var(--dim);display:grid;gap:5px}
+  .keys div{display:flex;justify-content:space-between;gap:10px}
+  .hours{white-space:pre-wrap;font-size:13px;background:var(--bg);border:1px solid var(--line);
+         border-radius:8px;padding:10px 12px;margin:10px 0}
+  .empty{color:var(--dim);padding:30px 0}
+  dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line);
+         border-radius:8px;max-width:min(760px,92vw);padding:20px}
+  dialog::backdrop{background:#0008}
+  dialog table td:first-child{width:60px}
+</style>
+</head>
+<body>
+
+<header>
+  <input type="file" id="file" accept=".csv,text/csv">
+  <span id="stats"></span>
+  <button id="showSkipped" class="link" hidden></button>
+  <span class="sp"></span>
+  <select id="mode" title="How the Call button places the call">
+    <option value="gv">Google Voice (web)</option>
+    <option value="tel">tel: handoff</option>
+    <option value="twilio">Twilio (in browser)</option>
+  </select>
+  <input id="manual" placeholder="Dial any number" size="16" inputmode="tel">
+  <button id="manualCall">Call</button>
+  <button id="export" disabled>Export</button>
+</header>
+
+<main>
+  <div id="fold-l"><div class="fold-hd">Numbers</div><div id="queue"></div></div>
+  <section id="fold-m"><p class="empty">Load a CSV to start.</p></section>
+  <section id="fold-r"></section>
+</main>
+
+<dialog id="skipDlg">
+  <h3 style="margin-top:0">Skipped rows — not dialable</h3>
+  <div id="skipBody"></div>
+  <div class="row"><button onclick="skipDlg.close()">Close</button></div>
+</dialog>
+
+<script type="module">
+import { parseCSV, detectColumns, pickColumn, findPhone, prettyPhone, mapQuery, toCSV } from './dialer.js';
+
+const $ = id => document.getElementById(id);
+const STORE = 'powerdialer:results';
+
+let headers = [], cols = {}, leads = [], skips = [], idx = 0;
+let storeKey = STORE, results = {}, twilioCall = null;
+
+const OUTCOMES = ['Answered', 'Voicemail', 'No answer', 'Callback', 'Not interested'];
+const load = k => { try { return JSON.parse(localStorage.getItem(k)) || {}; } catch { return {}; } };
+const save = () => { try { localStorage.setItem(storeKey, JSON.stringify(results)); } catch (e) { setStatus('could not save: ' + e.name); } };
+// row number too, so two locations sharing a main line don't share one outcome
+const keyOf = l => l.phone.e164 + '#' + l.rec.__row;
+
+/* ---------- load ---------- */
+$('file').onchange = async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const parsed = parseCSV(await f.text());
+  headers = parsed.headers;
+  cols = detectColumns(headers);
+  cols.hours = pickColumn(headers, ['hours', 'business_hours', 'opening_hours', 'working_hours', 'schedule']);
+  cols.rating = pickColumn(headers, ['rating', 'stars', 'score', 'reviews']);
+  leads = []; skips = []; idx = 0;
+  storeKey = `${STORE}:${f.name}`;      // per file, so results never bleed between lists
+  results = load(storeKey);
+
+  for (const rec of parsed.records) {
+    const phone = findPhone(rec, headers, cols);
+    if (phone.ok) leads.push({ rec, phone });
+    else skips.push({ rec, reason: phone.reason });
+  }
+  $('export').disabled = !leads.length;
+  $('showSkipped').hidden = !skips.length;
+  $('showSkipped').textContent = `${skips.length} skipped`;
+  renderStats(); renderQueue(); renderCard();
+};
+
+function renderStats() {
+  const done = leads.filter(l => results[keyOf(l)]?.status).length;
+  $('stats').textContent = leads.length
+    ? `${done}/${leads.length} called · ${skips.length} skipped`
+    : '';
+}
+
+/* ---------- left fold: the numbers ---------- */
+function renderQueue() {
+  $('queue').innerHTML = '';
+  leads.forEach((l, i) => {
+    const r = results[keyOf(l)];
+    const d = document.createElement('div');
+    d.className = 'q' + (i === idx ? ' on' : '');
+    d.innerHTML = `<b>${escape_(nameOf(l) || prettyPhone(l.phone.e164))}</b>
+      <span class="tag">${r?.status ? escape_(r.status) : ''}</span>
+      <span class="ph">${prettyPhone(l.phone.e164)}</span>`;
+    d.onclick = () => { idx = i; renderCard(); };
+    $('queue').append(d);
+  });
+  // arrow-keying past the visible window must not lose the highlight
+  $('queue').querySelector('.q.on')?.scrollIntoView({ block: 'nearest' });
+}
+
+const nameOf = l => cols.name ? l.rec[cols.name] : '';
+const escape_ = s => String(s ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------- middle fold: the dial ---------- */
+function renderCard() {
+  if (!leads.length) {
+    $('fold-m').innerHTML = '<p class="empty">No dialable numbers in this CSV.</p>';
+    $('fold-r').innerHTML = '';
+    return;
+  }
+  const l = leads[idx], r = results[keyOf(l)] || {};
+
+  $('fold-m').innerHTML = `
+    <div class="fold-hd" style="margin:-20px -20px 14px;padding:8px 20px">Dial · ${idx + 1} of ${leads.length}</div>
+    <h1>${escape_(nameOf(l) || '(no name column)')}</h1>
+    <div class="num">${prettyPhone(l.phone.e164)}</div>
+    ${l.phone.recovered ? `<div class="note">number recovered from the "${escape_(l.phone.source)}" column</div>` : ''}
+    ${digitsChanged(l.phone) ? `<div class="note">reformatted from "${escape_(l.phone.raw)}"</div>` : ''}
+    <span id="status"></span>
+
+    <div class="row" style="margin-top:14px"><button class="call" id="call">Call &nbsp;<kbd>space</kbd></button></div>
+    <div class="row"><button id="hang" class="hang" ${twilioCall ? '' : 'hidden'}>Hang up</button></div>
+    <div class="row">
+      <button class="nav" id="prev" ${idx === 0 ? 'disabled' : ''}>← Prev</button>
+      <button class="nav" id="next" ${idx === leads.length - 1 ? 'disabled' : ''}>Next →</button>
+    </div>
+
+    <div class="outs">${OUTCOMES.map((o, i) =>
+      `<button data-out="${o}" style="${r.status === o ? 'border-color:var(--accent);color:var(--accent)' : ''}">
+         <span>${o}</span> <kbd>${i + 1}</kbd></button>`).join('')}
+    </div>
+
+    <div class="row"><textarea id="notes" placeholder="Notes">${escape_(r.notes || '')}</textarea></div>
+
+    <div class="keys">
+      <div><span>Dial number (opens Google Voice)</span><kbd>space</kbd></div>
+      <div><span>Previous number</span><kbd>←</kbd></div>
+      <div><span>Next number</span><kbd>→</kbd></div>
+      <div><span>Log outcome</span><span><kbd>1</kbd>–<kbd>5</kbd></span></div>
+      <div><span>Leave the notes box</span><kbd>esc</kbd></div>
+    </div>`;
+
+  renderDetail(l);
+
+  $('call').onclick = () => dial(l.phone.e164);
+  $('hang').onclick = hangup;
+  $('prev').onclick = () => move(-1);
+  $('next').onclick = () => move(1);
+  $('notes').oninput = e => { (results[keyOf(l)] ||= {}).notes = e.target.value; save(); };
+  $('notes').onkeydown = e => { if (e.key === 'Escape') e.target.blur(); };  // typing must not eat the keybinds forever
+  $('fold-m').querySelectorAll('[data-out]').forEach(b =>
+    b.onclick = () => setOutcome(b.dataset.out));
+  renderQueue();
+}
+
+/* ---------- right fold: the business ---------- */
+function renderDetail(l) {
+  const q = mapQuery(l.rec, cols);
+  const hours = cols.hours && l.rec[cols.hours];
+  const fields = headers
+    .filter(h => l.rec[h])
+    .map(h => `<tr><td>${escape_(h)}</td><td>${linkify(l.rec[h])}</td></tr>`).join('');
+
+  $('fold-r').innerHTML = `
+    <div class="fold-hd" style="margin:-18px -22px 14px;padding:8px 22px">Business</div>
+    <div class="sub">${escape_(l.rec[cols.category] || 'no category')}${
+      cols.rating && l.rec[cols.rating] ? ' · ★ ' + escape_(l.rec[cols.rating]) : ''
+    } &nbsp;·&nbsp; row ${escape_(l.rec.__row)} of the CSV</div>
+    ${hours ? `<div class="hours">${escape_(hours).replace(/\s*[|;]\s*/g, '\n')}</div>`
+            : '<div class="note">no hours column in this CSV</div>'}
+    ${q ? `<iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+             src="https://www.google.com/maps?q=${encodeURIComponent(q)}&output=embed"></iframe>
+           <div class="row"><a target="_blank" rel="noreferrer"
+             href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}">Open in Google Maps</a></div>`
+        : '<p class="empty">No address or coordinates in this row — no map.</p>'}
+    <table>${fields}</table>`;
+  $('fold-r').scrollTop = 0;
+}
+
+// only warn when the actual digits moved - a bare +1 prefix isn't a change worth flagging
+const bare = s => String(s ?? '').replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
+const digitsChanged = p => p.raw && bare(p.raw) !== bare(p.e164);
+
+function linkify(v) {
+  const s = escape_(v);
+  if (/^https?:\/\/\S+$/i.test(v)) return `<a href="${s}" target="_blank" rel="noreferrer">${s}</a>`;
+  if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(v) && /\.(com|net|org|io|co|biz|us|info)\b/i.test(v))
+    return `<a href="https://${s}" target="_blank" rel="noreferrer">${s}</a>`;
+  if (/^[^@\s]+@[^@\s]+\.\w+$/.test(v)) return `<a href="mailto:${s}">${s}</a>`;
+  return s;
+}
+
+function move(d) {
+  const n = idx + d;
+  if (n < 0 || n >= leads.length) return;
+  idx = n; renderCard();
+  $('fold-m').scrollTop = 0;
+}
+
+function setOutcome(status) {
+  const l = leads[idx];
+  results[keyOf(l)] = { ...results[keyOf(l)], status, at: new Date().toISOString() };
+  save(); renderStats();
+  if (idx < leads.length - 1) move(1); else renderCard();
+}
+
+/* ---------- dialing ---------- */
+function dial(number) {
+  const mode = $('mode').value;
+  if (mode === 'gv') {
+    // Google Voice has no calling API; this deep link opens GV with the number loaded.
+    window.open(`https://voice.google.com/u/0/calls?a=nc,${encodeURIComponent(number)}`,
+                'gvoice', 'width=460,height=680');
+    setStatus('opened in Google Voice');
+  } else if (mode === 'tel') {
+    window.location.href = 'tel:' + number;
+    setStatus('handed to your tel: handler');
+  } else {
+    twilioDial(number);
+  }
+  const l = leads[idx];
+  if (l && l.phone.e164 === number) {
+    results[keyOf(l)] = { ...results[keyOf(l)], dialed: number, at: new Date().toISOString() };
+    save();
+  }
+}
+
+const setStatus = t => { const s = $('status'); if (s) s.textContent = t; };
+
+let device;
+// the Twilio Voice SDK is a UMD bundle, not an ES module - has to go in via a script tag
+const loadScript = src => new Promise((ok, no) => {
+  const s = Object.assign(document.createElement('script'), { src, onload: ok,
+    onerror: () => no(new Error('Twilio SDK not found — run: npm install twilio @twilio/voice-sdk')) });
+  document.head.append(s);
+});
+
+async function twilioDial(number) {
+  if (twilioCall) { setStatus('a call is already in progress'); return; }
+  try {
+    setStatus('connecting…');
+    if (!device) {
+      // Voice SDK 2.x is npm-only (the old sdk.twilio.com CDN path 403s), served from node_modules
+      if (!window.Twilio) await loadScript('/node_modules/@twilio/voice-sdk/dist/twilio.min.js');
+      const res = await fetch('/token');
+      if (!res.ok) throw new Error('token endpoint not running — see README');
+      // build into a local: a failed register() must not leave a poisoned device behind
+      const d = new Twilio.Device((await res.json()).token, { logLevel: 'error' });
+      await d.register();
+      device = d;
+    }
+    twilioCall = await device.connect({ params: { To: number } });
+    if ($('hang')) $('hang').hidden = false;
+    twilioCall.on('accept', () => setStatus('connected'));
+    twilioCall.on('disconnect', () => {
+      twilioCall = null; setStatus('call ended');
+      if ($('hang')) $('hang').hidden = true;
+    });
+    twilioCall.on('error', e => setStatus('error: ' + e.message));
+  } catch (e) {
+    twilioCall = null;
+    setStatus('Twilio: ' + e.message);
+  }
+}
+function hangup() { twilioCall?.disconnect(); }
+
+$('manualCall').onclick = () => {
+  const raw = $('manual').value.trim();
+  if (!raw) return;
+  const digits = raw.replace(/[^\d+]/g, '');
+  dial(digits.startsWith('+') ? digits : (digits.length === 10 ? '+1' + digits : '+' + digits));
+};
+$('manual').onkeydown = e => { if (e.key === 'Enter') $('manualCall').click(); };
+
+/* ---------- skipped ---------- */
+$('showSkipped').onclick = () => {
+  $('skipBody').innerHTML = `<p>These rows had no dialable number, so the dialer passes over them:</p>
+    <table><tr><td><b>Row</b></td><td><b>Who</b></td><td><b>Why skipped</b></td></tr>` +
+    skips.map(s => `<tr><td>${escape_(s.rec.__row)}</td>
+      <td>${escape_((cols.name && s.rec[cols.name]) || '—')}</td>
+      <td>${escape_(s.reason)}</td></tr>`).join('') + '</table>';
+  $('skipDlg').showModal();
+};
+
+/* ---------- export ---------- */
+$('export').onclick = () => {
+  const out = [...headers, 'dialed_number', 'call_status', 'call_notes', 'called_at'];
+  const rows = [
+    ...leads.map(l => ({ ...l.rec, dialed_number: l.phone.e164, ...pick(results[keyOf(l)]) })),
+    ...skips.map(s => ({ ...s.rec, call_status: 'SKIPPED: ' + s.reason })),
+  ];
+  const url = URL.createObjectURL(new Blob([toCSV(out, rows)], { type: 'text/csv' }));
+  Object.assign(document.createElement('a'), { href: url, download: 'dialer-results.csv' }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);   // the download is queued, not immediate
+};
+const pick = r => ({ call_status: r?.status || '', call_notes: r?.notes || '', called_at: r?.at || '' });
+
+/* ---------- keys ---------- */
+document.onkeydown = e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;   // ctrl+c must stay copy, not "call"
+  if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || !leads.length || $('skipDlg').open) return;
+  if (e.key === ' ') { e.preventDefault(); $('call')?.click(); }        // else space scrolls the fold
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); move(-1); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); move(1); }
+  else if (/^[1-5]$/.test(e.key)) setOutcome(OUTCOMES[+e.key - 1]);
+};
+window.skipDlg = $('skipDlg');
+$('mode').value = localStorage.getItem('powerdialer:mode') || 'gv';
+$('mode').onchange = e => localStorage.setItem('powerdialer:mode', e.target.value);
+</script>
+</body>
+</html>
