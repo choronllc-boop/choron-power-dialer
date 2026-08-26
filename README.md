@@ -79,7 +79,31 @@ all in), and ~$1.15/mo to rent the number. Trial accounts can only call verified
   CSV back out with `dialed_number`, `call_status`, `call_notes`, `called_at` appended, skipped
   rows included and marked.
 
-Keys: `c` call · `n` next · `p` prev · `1`–`5` outcome (which also advances).
+Layout: a tri-fold — **left** the numbers, **middle** the dial (Call / Prev / Next / outcomes /
+notes), **right** the business (details, hours, map, reviews).
+
+Keys: `space` dial · `←` prev · `→` next · `1`–`5` outcome (which also advances) ·
+`r` load reviews · `esc` leave the notes box.
+
+## Google reviews (needs your own API key)
+
+The map is an `<iframe>` from google.com, so nothing on the page can read inside it, and scraping
+maps.google.com directly is against Google's terms and gets blocked. The supported route is the
+**Places API (New)**, which is what the **Load** button in the reviews box calls:
+
+1. [Google Cloud console](https://console.cloud.google.com/) → new project → **APIs & Services** →
+   enable **Places API (New)** (billing must be on; there's a monthly free allowance).
+2. **Credentials** → **Create credentials** → **API key**. Restrict it to the Places API.
+3. Start the server with the key set — it stays server-side, never reaching the page:
+
+```powershell
+$env:GOOGLE_MAPS_API_KEY="AIza..."; node server.mjs
+```
+
+Limits worth knowing: the API returns **at most 5 reviews** per place and there is no page 2 —
+full review history is not available from any official Google endpoint. Each **Load** is one billed
+Text Search call (results are cached per business for the life of the server process), so it's on a
+button rather than firing on every arrow-key press.
 
 ## Files
 

@@ -8,81 +8,104 @@
   :root{
     --bg:#fbfbfa; --panel:#fff; --line:#e4e4e1; --ink:#1c1c1a; --dim:#7a7a75;
     --accent:#0f7b5f; --warn:#a35a12; --bad:#a02c2c; --crease:#00000010;
+    --pad:20px;
   }
   @media (prefers-color-scheme:dark){
     :root{ --bg:#151513; --panel:#1c1c1a; --line:#2e2e2b; --ink:#eceae5; --dim:#8e8e88;
            --accent:#3fbf95; --warn:#d29a4e; --bad:#e07070; --crease:#00000040; }
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);
+  [hidden]{display:none!important}   /* .row's display:flex outranks the UA rule otherwise */
+  /* flex column, not calc(100vh - 53px): the header's real height changes with wrapping */
+  body{margin:0;height:100vh;display:flex;flex-direction:column;overflow:hidden;
+       background:var(--bg);color:var(--ink);
        font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
   button{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);
-         border-radius:6px;padding:6px 12px;cursor:pointer}
+         border-radius:6px;padding:7px 12px;cursor:pointer}
   button:hover:not(:disabled){border-color:var(--dim)}
   button:disabled{opacity:.4;cursor:default}
   input,select,textarea{font:inherit;color:inherit;background:var(--panel);
-         border:1px solid var(--line);border-radius:6px;padding:6px 9px}
+         border:1px solid var(--line);border-radius:6px;padding:7px 9px}
   a{color:var(--accent)}
 
-  header{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  header{display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:none;
          padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
   header .sp{flex:1}
   #stats{color:var(--dim);font-variant-numeric:tabular-nums}
   #status{font-size:12px;color:var(--dim);min-height:18px;display:block}
   .link{background:none;border:none;color:var(--accent);padding:0;text-decoration:underline}
 
-  /* tri-fold: numbers | dial | dossier, with a crease at each fold */
-  main{display:grid;grid-template-columns:300px minmax(300px,360px) 1fr;
-       height:calc(100vh - 53px);background:var(--panel)}
-  main > *{overflow:auto}
-  #fold-l{border-right:1px solid var(--line);box-shadow:inset -8px 0 8px -8px var(--crease)}
-  #fold-m{border-right:1px solid var(--line);padding:20px;
-          box-shadow:inset 8px 0 8px -8px var(--crease),inset -8px 0 8px -8px var(--crease)}
-  #fold-r{box-shadow:inset 8px 0 8px -8px var(--crease);padding:18px 22px}
-  @media (max-width:1000px){
-    main{grid-template-columns:1fr;height:auto}
-    #fold-l{max-height:35vh}
-    main > *{border-right:none;box-shadow:none;border-bottom:1px solid var(--line)}
+  /* the tri-fold: numbers | dial | business, panels in proportion with a crease at each fold */
+  main{flex:1;min-height:0;display:grid;background:var(--panel);
+       grid-template-columns:minmax(240px,1fr) minmax(320px,1.15fr) minmax(400px,2fr)}
+  .fold{min-width:0;display:flex;flex-direction:column;overflow:hidden}
+  .fold + .fold{border-left:1px solid var(--line);box-shadow:inset 9px 0 9px -9px var(--crease)}
+  .fold-hd{flex:none;padding:9px var(--pad);font-size:11px;letter-spacing:.09em;
+           text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line);
+           display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+  .fold-bd{flex:1;min-height:0;overflow:auto;padding:var(--pad)}
+  #queue{padding:0}                       /* rows carry their own padding, edge to edge */
+  @media (max-width:960px){
+    body{height:auto;overflow:auto}
+    main{grid-template-columns:1fr}
+    .fold{overflow:visible}
+    .fold + .fold{border-left:none;box-shadow:none;border-top:1px solid var(--line)}
+    #queue{max-height:36vh}
   }
 
-  .fold-hd{position:sticky;top:0;background:var(--panel);padding:8px 12px;font-size:11px;
-           letter-spacing:.09em;text-transform:uppercase;color:var(--dim);
-           border-bottom:1px solid var(--line);z-index:1}
-  .q{padding:8px 12px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}
+  .q{padding:9px var(--pad);border-bottom:1px solid var(--line);cursor:pointer;font-size:13px;
+     display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:baseline}
   .q:hover{background:var(--bg)}
   .q.on{background:var(--bg);box-shadow:inset 3px 0 0 var(--accent)}
-  .q b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .q b{font-weight:600;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .q .ph{color:var(--dim);font-size:12px;font-variant-numeric:tabular-nums}
-  .q .tag{float:right;font-size:11px;color:var(--accent)}
+  .q .tag{grid-column:2;font-size:11px;color:var(--accent);text-align:right;white-space:nowrap}
 
-  h1{font-size:20px;margin:0 0 2px;line-height:1.25}
-  .sub{color:var(--dim);font-size:12px;margin-bottom:14px}
-  .num{font-size:32px;font-variant-numeric:tabular-nums;letter-spacing:.5px;margin:10px 0 4px}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}
+  h1{font-size:19px;margin:0 0 2px;line-height:1.3}
+  .sub{color:var(--dim);font-size:12px}
+  .num{font-size:30px;font-variant-numeric:tabular-nums;letter-spacing:.5px;margin:8px 0 2px}
+  .row{display:flex;gap:8px;align-items:center;margin:10px 0}
   .call{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;
-        padding:16px;width:100%;font-size:17px}
-  .nav{flex:1;padding:10px}
+        padding:15px;width:100%;font-size:16px;
+        display:flex;align-items:center;justify-content:center;gap:10px}
+  .call kbd{border-color:#ffffff6b;color:#fff}
+  .nav{flex:1 1 0;padding:10px}          /* 1 1 0, so both halves are equal regardless of label */
   .hang{background:var(--bad);border-color:var(--bad);color:#fff;width:100%;padding:10px}
   .note{color:var(--warn);font-size:12px}
   .outs{display:grid;gap:6px}
-  .outs button{text-align:left;display:flex;justify-content:space-between}
-  table{border-collapse:collapse;width:100%;margin:14px 0}
-  td{border-top:1px solid var(--line);padding:6px 10px;vertical-align:top}
-  td:first-child{color:var(--dim);width:190px;white-space:nowrap}
-  iframe{width:100%;height:280px;border:1px solid var(--line);border-radius:8px}
-  textarea{width:100%;min-height:70px;resize:vertical}
+  .outs button{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left}
+  textarea{width:100%;min-height:70px;resize:vertical;display:block}
   kbd{border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:11px;
-      color:var(--dim);font-family:ui-monospace,monospace}
-  .keys{margin-top:18px;padding-top:12px;border-top:1px solid var(--line);
-        font-size:12px;color:var(--dim);display:grid;gap:5px}
-  .keys div{display:flex;justify-content:space-between;gap:10px}
-  .hours{white-space:pre-wrap;font-size:13px;background:var(--bg);border:1px solid var(--line);
-         border-radius:8px;padding:10px 12px;margin:10px 0}
-  .empty{color:var(--dim);padding:30px 0}
+      line-height:1.5;color:var(--dim);font-family:ui-monospace,monospace;white-space:nowrap}
+  .keys{margin-top:16px;padding-top:12px;border-top:1px solid var(--line);
+        font-size:12px;color:var(--dim);display:grid;gap:6px}
+  .keys div{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+
+  /* wide screens get two columns instead of one 1700px-wide table; capped so a very wide
+     window doesn't thin it out to four sparse ones */
+  .dossier{display:grid;gap:18px;align-items:start;max-width:880px;
+           grid-template-columns:repeat(auto-fit,minmax(380px,1fr))}
+  .box.wide{grid-column:1/-1}
+  .box{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+  .box > h2{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);
+            margin:0;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--bg);
+            display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .box > p, .box > .pad{margin:0;padding:10px 12px}
+  table{border-collapse:collapse;width:100%;table-layout:fixed}
+  td{padding:7px 12px;vertical-align:top;overflow-wrap:anywhere}
+  tr + tr td{border-top:1px solid var(--line)}
+  td:first-child{color:var(--dim);width:40%}
+  .hours{white-space:pre-wrap}
+  iframe{width:100%;height:300px;border:0;display:block}
+  .rev{padding:10px 12px}
+  .rev + .rev{border-top:1px solid var(--line)}
+  .rev .who{display:flex;justify-content:space-between;gap:10px;align-items:baseline;
+            color:var(--dim);font-size:12px;margin-bottom:3px}
+  .empty{color:var(--dim);margin:0;padding:10px 12px}
   dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line);
          border-radius:8px;max-width:min(760px,92vw);padding:20px}
   dialog::backdrop{background:#0008}
-  dialog table td:first-child{width:60px}
+  dialog td:first-child{width:60px}
 </style>
 </head>
 <body>
@@ -103,9 +126,18 @@
 </header>
 
 <main>
-  <div id="fold-l"><div class="fold-hd">Numbers</div><div id="queue"></div></div>
-  <section id="fold-m"><p class="empty">Load a CSV to start.</p></section>
-  <section id="fold-r"></section>
+  <div class="fold">
+    <div class="fold-hd"><span>Numbers</span><span id="queueCount"></span></div>
+    <div class="fold-bd" id="queue"></div>
+  </div>
+  <div class="fold">
+    <div class="fold-hd"><span>Dial</span><span id="dialCount"></span></div>
+    <div class="fold-bd" id="dial"><p class="empty" style="padding:20px 0">Load a CSV to start.</p></div>
+  </div>
+  <div class="fold">
+    <div class="fold-hd"><span>Business</span><span id="bizRow"></span></div>
+    <div class="fold-bd" id="biz"></div>
+  </div>
 </main>
 
 <dialog id="skipDlg">
@@ -158,6 +190,7 @@ function renderStats() {
   $('stats').textContent = leads.length
     ? `${done}/${leads.length} called · ${skips.length} skipped`
     : '';
+  $('queueCount').textContent = leads.length ? `${done}/${leads.length}` : '';
 }
 
 /* ---------- left fold: the numbers ---------- */
@@ -183,22 +216,22 @@ const escape_ = s => String(s ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>
 /* ---------- middle fold: the dial ---------- */
 function renderCard() {
   if (!leads.length) {
-    $('fold-m').innerHTML = '<p class="empty">No dialable numbers in this CSV.</p>';
-    $('fold-r').innerHTML = '';
+    $('dial').innerHTML = '<p class="empty" style="padding:20px 0">No dialable numbers in this CSV.</p>';
+    $('biz').innerHTML = '';
     return;
   }
   const l = leads[idx], r = results[keyOf(l)] || {};
+  $('dialCount').textContent = `${idx + 1} of ${leads.length}`;
 
-  $('fold-m').innerHTML = `
-    <div class="fold-hd" style="margin:-20px -20px 14px;padding:8px 20px">Dial · ${idx + 1} of ${leads.length}</div>
+  $('dial').innerHTML = `
     <h1>${escape_(nameOf(l) || '(no name column)')}</h1>
     <div class="num">${prettyPhone(l.phone.e164)}</div>
     ${l.phone.recovered ? `<div class="note">number recovered from the "${escape_(l.phone.source)}" column</div>` : ''}
     ${digitsChanged(l.phone) ? `<div class="note">reformatted from "${escape_(l.phone.raw)}"</div>` : ''}
     <span id="status"></span>
 
-    <div class="row" style="margin-top:14px"><button class="call" id="call">Call &nbsp;<kbd>space</kbd></button></div>
-    <div class="row"><button id="hang" class="hang" ${twilioCall ? '' : 'hidden'}>Hang up</button></div>
+    <div class="row"><button class="call" id="call">Call <kbd>space</kbd></button></div>
+    <div class="row" ${twilioCall ? '' : 'hidden'}><button id="hang" class="hang">Hang up</button></div>
     <div class="row">
       <button class="nav" id="prev" ${idx === 0 ? 'disabled' : ''}>← Prev</button>
       <button class="nav" id="next" ${idx === leads.length - 1 ? 'disabled' : ''}>Next →</button>
@@ -206,7 +239,7 @@ function renderCard() {
 
     <div class="outs">${OUTCOMES.map((o, i) =>
       `<button data-out="${o}" style="${r.status === o ? 'border-color:var(--accent);color:var(--accent)' : ''}">
-         <span>${o}</span> <kbd>${i + 1}</kbd></button>`).join('')}
+         <span>${o}</span><kbd>${i + 1}</kbd></button>`).join('')}
     </div>
 
     <div class="row"><textarea id="notes" placeholder="Notes">${escape_(r.notes || '')}</textarea></div>
@@ -215,19 +248,20 @@ function renderCard() {
       <div><span>Dial number (opens Google Voice)</span><kbd>space</kbd></div>
       <div><span>Previous number</span><kbd>←</kbd></div>
       <div><span>Next number</span><kbd>→</kbd></div>
-      <div><span>Log outcome</span><span><kbd>1</kbd>–<kbd>5</kbd></span></div>
+      <div><span>Log outcome</span><span><kbd>1</kbd> – <kbd>5</kbd></span></div>
+      <div><span>Load Google reviews</span><kbd>r</kbd></div>
       <div><span>Leave the notes box</span><kbd>esc</kbd></div>
     </div>`;
 
   renderDetail(l);
 
   $('call').onclick = () => dial(l.phone.e164);
-  $('hang').onclick = hangup;
+  if ($('hang')) $('hang').onclick = hangup;
   $('prev').onclick = () => move(-1);
   $('next').onclick = () => move(1);
   $('notes').oninput = e => { (results[keyOf(l)] ||= {}).notes = e.target.value; save(); };
   $('notes').onkeydown = e => { if (e.key === 'Escape') e.target.blur(); };  // typing must not eat the keybinds forever
-  $('fold-m').querySelectorAll('[data-out]').forEach(b =>
+  $('dial').querySelectorAll('[data-out]').forEach(b =>
     b.onclick = () => setOutcome(b.dataset.out));
   renderQueue();
 }
@@ -240,20 +274,56 @@ function renderDetail(l) {
     .filter(h => l.rec[h])
     .map(h => `<tr><td>${escape_(h)}</td><td>${linkify(l.rec[h])}</td></tr>`).join('');
 
-  $('fold-r').innerHTML = `
-    <div class="fold-hd" style="margin:-18px -22px 14px;padding:8px 22px">Business</div>
-    <div class="sub">${escape_(l.rec[cols.category] || 'no category')}${
-      cols.rating && l.rec[cols.rating] ? ' · ★ ' + escape_(l.rec[cols.rating]) : ''
-    } &nbsp;·&nbsp; row ${escape_(l.rec.__row)} of the CSV</div>
-    ${hours ? `<div class="hours">${escape_(hours).replace(/\s*[|;]\s*/g, '\n')}</div>`
-            : '<div class="note">no hours column in this CSV</div>'}
-    ${q ? `<iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade"
-             src="https://www.google.com/maps?q=${encodeURIComponent(q)}&output=embed"></iframe>
-           <div class="row"><a target="_blank" rel="noreferrer"
-             href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}">Open in Google Maps</a></div>`
-        : '<p class="empty">No address or coordinates in this row — no map.</p>'}
-    <table>${fields}</table>`;
-  $('fold-r').scrollTop = 0;
+  $('bizRow').textContent = `row ${l.rec.__row}`;
+  $('biz').innerHTML = `
+    <div class="dossier">
+      <div class="box">
+        <h2><span>${escape_(l.rec[cols.category] || 'Details')}</span>
+            <span>${cols.rating && l.rec[cols.rating] ? '★ ' + escape_(l.rec[cols.rating]) : ''}</span></h2>
+        <table>${fields}</table>
+      </div>
+      <div class="box">
+        <h2>Hours</h2>
+        ${hours ? `<p class="pad hours">${escape_(hours).replace(/\s*[|;]\s*/g, '\n')}</p>`
+                : '<p class="empty">No hours column in this CSV.</p>'}
+      </div>
+      <div class="box wide">
+        <h2><span>Map</span>${q ? `<a target="_blank" rel="noreferrer"
+            href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}">Open in Google Maps</a>` : ''}</h2>
+        ${q ? `<iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+                 src="https://www.google.com/maps?q=${encodeURIComponent(q)}&output=embed"></iframe>`
+            : '<p class="empty">No address or coordinates in this row.</p>'}
+      </div>
+      <div class="box wide">
+        <h2><span>Google reviews</span><button id="loadRev">Load <kbd>r</kbd></button></h2>
+        <div id="revBody"><p class="empty">Not loaded — each load is a billed Places API call.</p></div>
+      </div>
+    </div>`;
+  $('loadRev').onclick = () => loadReviews(l);
+  $('biz').scrollTop = 0;
+}
+
+// name + address is what Places matches on; lat/lng is for the map only
+const revQuery = l => [nameOf(l), cols.address && l.rec[cols.address],
+                       cols.city && l.rec[cols.city], cols.state && l.rec[cols.state]]
+                      .filter(Boolean).join(', ');
+
+async function loadReviews(l) {
+  const body = $('revBody');
+  body.innerHTML = '<p class="empty">Loading…</p>';
+  try {
+    const res = await fetch('/reviews?q=' + encodeURIComponent(revQuery(l)));
+    const j = await res.json();
+    if (j.error) { body.innerHTML = `<p class="empty">${escape_(j.error)}</p>`; return; }
+    body.innerHTML = (j.reviews?.length
+      ? `<p class="empty">${escape_(j.name || '')} — ★ ${escape_(j.rating ?? '?')} (${escape_(j.total ?? 0)} ratings)</p>` +
+        j.reviews.map(r => `<div class="rev">
+             <div class="who"><span>${escape_(r.author)}</span><span>★ ${escape_(r.rating)} · ${escape_(r.when)}</span></div>
+             <div>${escape_(r.text)}</div></div>`).join('')
+      : '<p class="empty">No reviews returned for that search.</p>');
+  } catch (e) {
+    body.innerHTML = `<p class="empty">${escape_(e.message)}</p>`;
+  }
 }
 
 // only warn when the actual digits moved - a bare +1 prefix isn't a change worth flagging
@@ -273,7 +343,7 @@ function move(d) {
   const n = idx + d;
   if (n < 0 || n >= leads.length) return;
   idx = n; renderCard();
-  $('fold-m').scrollTop = 0;
+  $('dial').scrollTop = 0;
 }
 
 function setOutcome(status) {
@@ -329,12 +399,9 @@ async function twilioDial(number) {
       device = d;
     }
     twilioCall = await device.connect({ params: { To: number } });
-    if ($('hang')) $('hang').hidden = false;
+    renderCard();
     twilioCall.on('accept', () => setStatus('connected'));
-    twilioCall.on('disconnect', () => {
-      twilioCall = null; setStatus('call ended');
-      if ($('hang')) $('hang').hidden = true;
-    });
+    twilioCall.on('disconnect', () => { twilioCall = null; renderCard(); setStatus('call ended'); });
     twilioCall.on('error', e => setStatus('error: ' + e.message));
   } catch (e) {
     twilioCall = null;
@@ -381,6 +448,7 @@ document.onkeydown = e => {
   if (e.key === ' ') { e.preventDefault(); $('call')?.click(); }        // else space scrolls the fold
   else if (e.key === 'ArrowLeft') { e.preventDefault(); move(-1); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); move(1); }
+  else if (e.key === 'r') $('loadRev')?.click();
   else if (/^[1-5]$/.test(e.key)) setOutcome(OUTCOMES[+e.key - 1]);
 };
 window.skipDlg = $('skipDlg');

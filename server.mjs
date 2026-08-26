@@ -27,6 +27,7 @@ createServer(async (req, res) => {
 
   if (url.pathname === '/token') return token(res);
   if (url.pathname === '/voice') return voice(req, res, url);
+  if (url.pathname === '/reviews') return reviews(res, url.searchParams.get('q'));
 
   try {
     // normalize first so ../.. can't escape the folder; decode is inside the try because a
@@ -45,6 +46,46 @@ createServer(async (req, res) => {
     ? 'Twilio: configured, in-browser calling enabled'
     : `Twilio: off (set ${TWILIO.join(', ')} to enable). Google Voice and tel: modes work regardless.`);
 });
+
+// Google reviews. The map iframe is cross-origin, so nothing can be read out of it, and
+// scraping maps.google.com is against Google's terms - Places API is the supported path.
+// Returns at most 5 reviews; that is all the API gives, there is no page 2.
+const revCache = new Map();   // one billed call per business per server run
+
+async function reviews(res, q) {
+  const json = (code, o) => res.writeHead(code, { 'content-type': 'application/json' }).end(JSON.stringify(o));
+  const key = process.env.GOOGLE_MAPS_API_KEY;
+  if (!key) return json(200, { error: 'set GOOGLE_MAPS_API_KEY to load reviews — see README' });
+  if (!q || !q.trim()) return json(200, { error: 'no name or address in this row to search on' });
+  if (revCache.has(q)) return json(200, revCache.get(q));
+
+  try {
+    const r = await fetch('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'X-Goog-Api-Key': key,
+        'X-Goog-FieldMask': 'places.displayName,places.rating,places.userRatingCount,places.reviews' },
+      body: JSON.stringify({ textQuery: q, maxResultCount: 1 }),
+    });
+    const body = await r.json();
+    if (!r.ok) return json(200, { error: 'Places API: ' + (body.error?.message || r.status) });
+
+    const p = body.places?.[0];
+    if (!p) return json(200, { error: 'no Google listing matched that name and address' });
+    const out = {
+      name: p.displayName?.text || '', rating: p.rating, total: p.userRatingCount,
+      reviews: (p.reviews || []).map(v => ({
+        author: v.authorAttribution?.displayName || 'anonymous',
+        rating: v.rating,
+        when: v.relativePublishTimeDescription || '',
+        text: v.text?.text || v.originalText?.text || '',
+      })),
+    };
+    revCache.set(q, out);
+    json(200, out);
+  } catch (e) {
+    json(200, { error: 'reviews lookup failed: ' + e.message });
+  }
+}
 
 async function token(res) {
   if (!twilioReady) { res.writeHead(501).end('Twilio env vars not set'); return; }
